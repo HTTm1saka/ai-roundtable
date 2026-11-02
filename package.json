@@ -1,0 +1,14 @@
+{
+  "name": "local-ai-roundtable",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test tests/core.test.js tests/proxy.test.js",
+    "test:e2e": "playwright test"
+  },
+  "engines": { "node": ">=22" },
+  "dependencies": { "dompurify": "^3.3.0", "marked": "^17.0.0" },
+  "devDependencies": { "@playwright/test": "^1.58.0" }
+}

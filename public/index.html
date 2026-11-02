@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>圆桌 · 让观点相遇</title><link rel="stylesheet" href="/styles.css"><script defer src="/vendor/marked.js"></script><script defer src="/vendor/purify.js"></script><script type="module" src="/app.js"></script></head>
+<body>
+  <div id="fatal" class="fatal" hidden></div>
+  <div class="app">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="/" aria-label="圆桌首页"><span class="brandmark">✳</span> 圆桌<span class="local-badge">LOCAL</span></a>
+      <button id="new-session" class="new-session">＋ 新建讨论</button>
+      <div class="sidebar-label">你的讨论 <span id="session-count">0</span></div>
+      <nav id="sessions" aria-label="历史会话"></nav>
+      <div class="sidebar-bottom">
+        <div class="backup-buttons"><button id="export-json">↗ 导出备份</button><button id="import-json">↙ 导入备份</button></div>
+        <div class="backup-buttons mobile-only"><button id="mobile-rename">重命名当前会话</button><button id="mobile-export-text">导出当前文本</button></div>
+        <input type="file" id="import-file" accept="application/json,.json" hidden>
+        <div class="privacy"><span class="dot"></span> 记录仅保存在此浏览器</div>
+        <p>清除网站数据可能删除记录。<br>建议定期导出 JSON 备份。</p>
+      </div>
+    </aside>
+    <main>
+      <header class="topbar"><button id="menu-toggle" class="mobile-only" aria-label="打开历史会话">☰</button><div><span class="eyebrow">一个话题，多种视角</span><h1 id="session-title">新的讨论</h1></div><div class="header-actions"><span id="save-state" role="status">本地已保存</span><button id="rename-session" aria-label="重命名会话">重命名</button><button id="export-text">导出文本</button><button id="delete-session" class="icon-button" aria-label="删除当前会话">⌫</button></div></header>
+      <div class="workspace">
+        <section class="conversation" aria-label="聊天区域">
+          <div class="conversation-top"><span>讨论记录</span><span id="message-count">0 条发言</span></div>
+          <div id="messages" class="messages" tabindex="0" aria-label="消息记录"></div>
+          <button id="jump-bottom" hidden>↓ 回到最新消息</button>
+          <div class="composer-wrap">
+            <div id="context-note" class="notice" hidden>上下文超限：已保留完整话题和最近消息，较早内容已省略或截断。上限按字符估算，并非模型 token 数。</div>
+            <div id="error-box" class="error-box" role="alert" hidden><p id="error-message"></p><div><button id="retry">重试当前 AI</button><button id="skip">跳过并继续</button></div></div>
+            <form id="composer" class="composer"><label class="sr-only" for="message-input">话题或你的消息</label><textarea id="message-input" rows="3" placeholder="从一个值得讨论的问题开始…"></textarea><div class="composer-footer"><span id="composer-hint">先发送话题，再开始讨论</span><button class="primary" type="submit" id="send-message">发送 ↑</button></div></form>
+            <div class="composer-note">你可以随时加入讨论 · Ctrl / ⌘ + Enter 发送</div>
+          </div>
+        </section>
+        <aside class="inspector" aria-label="AI 配置与讨论控制">
+          <section class="control-panel"><div class="section-heading"><h2>讨论控制</h2><span class="status-pill" id="discussion-status">尚未开始</span></div><div class="round-display"><span id="round-current">0</span><span class="round-divider">/</span><span id="round-total">3</span><small>轮</small></div><p id="active-speaker">准备好，让观点相遇。</p><div class="progress-track"><div id="round-progress"></div></div><label class="inline-field">计划轮数<input id="rounds" type="number" min="1" max="10000" value="3"></label><div class="control-buttons"><button id="start" class="primary">▶ 开始讨论</button><button id="pause">Ⅱ 暂停</button><button id="resume">继续</button><button id="stop">■ 停止</button></div><div id="append-controls" hidden><label class="inline-field">追加轮数<input id="extra-rounds" type="number" min="1" max="10000" value="1"></label><button id="append" class="wide">＋ 追加并继续</button></div></section>
+          <section class="participants-panel"><div class="section-heading"><h2>参与 AI</h2><span id="ai-count">0 位</span></div><p class="section-caption">按以下顺序轮流发言</p><div id="participants"></div><button id="add-ai" class="add-ai">＋ 添加 AI</button><p id="edit-lock" class="fine-print">讨论中锁定配置；暂停完成或停止后可修改。</p></section>
+          <details class="advanced"><summary>上下文与请求设置</summary><label>上下文上限（字符）<input id="context-limit" type="number" min="1000" max="1000000" step="1000"></label><label>请求超时（秒）<input id="timeout" type="number" min="5" max="600"></label><p class="fine-print">保留话题与最近消息。角色提示词过长时会暂停并提示。设置在下一次请求生效。</p></details>
+          <div class="thought-card"><span>✳</span><p>好的讨论，<br>始于不同的声音。</p><small>独立角色 · 共享上下文 · 顺序发言</small></div>
+        </aside>
+      </div>
+    </main>
+  </div>
+  <div id="toast" role="status" hidden></div>
+  <dialog id="ai-dialog"><form id="ai-form"><div class="dialog-heading"><h2 id="ai-dialog-title">添加 AI</h2><button type="button" id="close-ai" aria-label="关闭">✕</button></div><p class="section-caption">为这位参与者配置独立的模型与视角。</p><label>名称<input name="name" required maxlength="100" placeholder="例如：理性分析师"></label><label>角色提示词<textarea name="role" rows="3" maxlength="50000" required placeholder="定义它的立场、专长与发言风格"></textarea></label><label>API Base URL<input name="base" required type="url" placeholder="https://api.openai.com/v1"></label><p class="fine-print">填写带版本的 API 根路径，如 …/v1；也接受完整 …/chat/completions，不会重复拼接。密钥请填在下方，不要放入 URL。</p><label>API Key<div class="key-field"><input name="key" type="password" autocomplete="off" placeholder="本地模型可留空"><button type="button" id="toggle-key">显示</button></div></label><label>密钥保存方式<select name="remember"><option value="no">仅本次使用（默认）</option><option value="yes">记住到本地</option></select></label><p class="fine-print">记住后会将密钥保存至 IndexedDB；能访问此浏览器数据的人或页面脚本可以读取。导出备份不包含密钥。</p><label>模型名称<input name="model" required maxlength="200" placeholder="填写服务商提供的准确模型 ID"></label><label class="checkbox"><input name="stream" type="checkbox" checked> 优先流式显示（不兼容时可关闭）</label><p id="test-result" role="status" class="test-result"></p><div class="dialog-actions"><button type="button" id="test-connection">测试连接</button><button class="primary" type="submit">保存 AI</button></div></form></dialog>
+</body></html>
