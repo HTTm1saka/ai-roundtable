@@ -12,7 +12,7 @@ export async function chatRequest(ai, messages, options = {}) {
 async function requestInternal(ai, messages, { signal, timeout = 120, onDelta = () => {} } = {}) {
   const response = await fetch('/api/chat', {
     method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Roundtable': '1' },
-    body: JSON.stringify({ base: ai.base, model: ai.model, key: ai.key || '', stream: ai.stream, messages, timeout }), signal
+    body: JSON.stringify({ provider: ai.provider || 'api', base: ai.base, model: ai.model, key: ai.provider === 'chatgpt' ? '' : ai.key || '', stream: ai.stream, messages, timeout }), signal
   });
   if (!response.ok) {
     let data;
@@ -41,6 +41,7 @@ async function requestInternal(ai, messages, { signal, timeout = 120, onDelta = 
     try { data = JSON.parse(raw); } catch { throw new Error('流式数据格式不兼容：SSE data 不是有效 JSON。'); }
     if (data.error?.code === 'timeout') throw new Error('请求超时，部分回复已保留；请增加超时时间后手动重试。');
     if (data.error?.code === 'network') throw new Error('生成过程中网络连接中断，部分回复已保留，请检查网络后重试。');
+    if (data.error?.code === 'subscription') throw new Error('ChatGPT 订阅生成失败，部分回复已保留；请检查登录状态、模型权限与额度后重试。');
     if (data.error) throw new Error('服务商在生成过程中返回错误，请检查账户、模型或稍后重试。');
     const c = data.choices?.[0];
     const part = c?.delta?.content;

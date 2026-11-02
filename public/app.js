@@ -67,7 +67,7 @@ function renderParticipants(s) {
     const card = el('div','participant');
     const top = el('div','participant-top');
     top.append(el('span','participant-number',String(i+1).padStart(2,'0')));
-    const info = el('div','participant-info'); info.append(el('strong','',p.name),el('small','',p.model || '尚未配置模型'));
+    const info = el('div','participant-info'); info.append(el('strong','',p.name),el('small','',p.provider === 'chatgpt' ? `ChatGPT 订阅 · ${p.model || '默认模型'}` : p.model || '尚未配置模型'));
     top.append(info); card.append(top);
     const tools = el('div','participant-tools');
     const actions = [ ['↑', '上移', async () => move(s,i,-1), i === 0], ['↓','下移',async () => move(s,i,1), i === s.participants.length-1],
@@ -182,15 +182,28 @@ function openAI(p = null) {
   const value = p || profile(); const form = $('ai-form'); form.reset();
   for (const key of ['name','role','base','key','model']) form.elements[key].value = value[key];
   form.elements.remember.value = value.remember ? 'yes' : 'no'; form.elements.stream.checked = value.stream;
+  form.elements.provider.value = value.provider || 'api'; updateProvider();
   form.elements.key.type = 'password'; $('toggle-key').textContent = '显示'; $('test-result').textContent = '';
   $('ai-dialog-title').textContent = p ? '编辑 AI' : '添加 AI'; $('ai-dialog').showModal();
+}
+function updateProvider() {
+  const f = $('ai-form').elements, subscription = f.provider.value === 'chatgpt';
+  $('api-settings').hidden = subscription;
+  $('subscription-settings').hidden = !subscription;
+  $('subscription-model-note').hidden = !subscription;
+  for (const key of ['base', 'key', 'remember']) f[key].disabled = subscription;
+  f.base.required = !subscription; f.model.required = !subscription;
+  f.model.placeholder = subscription ? '留空使用 Codex 默认模型' : '填写服务商提供的准确模型 ID';
+  $('test-result').textContent = ''; $('subscription-result').textContent = '';
+  testController?.abort();
 }
 function formProfile() {
   const f = $('ai-form').elements;
   const p = { id: editing.id || uid(), name: f.name.value.trim(), role: f.role.value.trim(), base: f.base.value.trim(),
-    key: f.key.value.trim(), model: f.model.value.trim(), remember: f.remember.value === 'yes', stream: f.stream.checked };
-  endpoint(p.base);
-  if (!p.name || !p.model) throw new Error('请填写 AI 名称和模型名称。');
+    provider: f.provider.value, key: f.key.value.trim(), model: f.model.value.trim(), remember: f.remember.value === 'yes', stream: f.stream.checked };
+  if (p.provider === 'chatgpt') { p.key = ''; p.remember = false; }
+  else endpoint(p.base);
+  if (!p.name || (p.provider !== 'chatgpt' && !p.model)) throw new Error('请填写 AI 名称和模型名称。');
   if (/[\r\n]/.test(p.key)) throw new Error('API Key 不应包含换行。');
   return p;
 }
@@ -234,6 +247,17 @@ function bind() {
   });
   setting('rounds','targetRounds',1,10000); setting('context-limit','contextLimit',1000,1000000); setting('timeout','timeout',5,600);
   $('add-ai').onclick = () => act(() => openAI());
+  $('ai-form').elements.provider.onchange = updateProvider;
+  $('subscription-status').onclick = () => act(async () => {
+    const button = $('subscription-status'); button.disabled = true;
+    $('subscription-result').textContent = '正在检查…';
+    try {
+      const response = await fetch('/api/chatgpt/status', { method: 'POST', headers: { 'X-Roundtable': '1' } });
+      if (!response.ok) throw new Error('无法检查登录状态，请确认本地服务正在运行。');
+      const result = await response.json();
+      $('subscription-result').textContent = result.connected ? '已通过 ChatGPT 登录；生成会消耗套餐中的 Codex 额度。' : '尚未登录，请在项目终端运行 npm run login:chatgpt。';
+    } finally { button.disabled = false; }
+  });
   $('close-ai').onclick = () => $('ai-dialog').close();
   $('ai-dialog').addEventListener('close', () => { testController?.abort(); $('ai-form').elements.key.value = ''; });
   $('toggle-key').onclick = () => { const input = $('ai-form').elements.key; input.type = input.type === 'password' ? 'text' : 'password'; $('toggle-key').textContent = input.type === 'password' ? '显示' : '隐藏'; };
@@ -245,7 +269,7 @@ function bind() {
     reconcile(s); await changedParticipants(s); $('ai-dialog').close(); toast('AI 配置已保存');
   }); };
   $('test-connection').onclick = () => act(async () => {
-    const p = formProfile(); $('test-connection').disabled = true; $('test-result').className = 'test-result'; $('test-result').textContent = '正在请求真实接口；可能产生少量 API 费用…';
+    const p = formProfile(); $('test-connection').disabled = true; $('test-result').className = 'test-result'; $('test-result').textContent = p.provider === 'chatgpt' ? '正在请求 ChatGPT；会消耗套餐中的 Codex 额度…' : '正在请求真实接口；可能产生少量 API 费用…';
     testController = new AbortController();
     try {
       await chatRequest(p,[{role:'system',content:'请简短回答。'},{role:'user',content:'连接测试，请只回复“连接成功”。'}],{signal:testController.signal,timeout:30});

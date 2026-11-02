@@ -2,6 +2,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { endpoint } from './public/core.js';
+import { subscriptionReply, subscriptionStatus } from './codex-provider.js';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
 const mime = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8' };
@@ -13,7 +14,7 @@ export function errorText(status) {
   if (status === 400 || status === 422) return '接口参数不兼容，请检查模型是否支持 Chat Completions、system 消息及流式输出；可关闭流式后手动重试。';
   return `上游服务请求失败（HTTP ${status}），请检查服务商状态。`;
 }
-export function createServer() {
+export function createServer({ codexReply = subscriptionReply, codexStatus = subscriptionStatus } = {}) {
   return http.createServer(async (req, res) => {
     const host = req.headers.host || '';
     if (!/^(127\.0\.0\.1|localhost)(:\d+)?$/.test(host)) { res.writeHead(403).end(); return; }
@@ -21,10 +22,15 @@ export function createServer() {
     res.setHeader('Referrer-Policy', 'no-referrer');
     res.setHeader('Cache-Control', 'no-store');
     const path = new URL(req.url, 'http://localhost').pathname;
-    if (path === '/api/chat' && req.method === 'POST') {
+    if ((path === '/api/chat' || path === '/api/chatgpt/status') && req.method === 'POST') {
       const origin = req.headers.origin;
       if ((origin && origin !== `http://${host}`) || req.headers['x-roundtable'] !== '1') {
         res.writeHead(403).end(); return;
+      }
+      if (path === '/api/chatgpt/status') {
+        try { res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify(await codexStatus())); }
+        catch { res.writeHead(503, { 'Content-Type': 'application/json' }).end(JSON.stringify({ error: '无法检查 ChatGPT 登录状态。' })); }
+        return;
       }
       const controller = new AbortController();
       let timedOut = false, timer;
@@ -42,12 +48,40 @@ export function createServer() {
         }
         let data;
         try { data = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { jsonError(400, '请求 JSON 无效。'); return; }
-        if (typeof data.base !== 'string' || typeof data.model !== 'string' || !data.model.trim()
+        if (!data || ![undefined, 'api', 'chatgpt'].includes(data.provider)
+          || typeof data.base !== 'string' || typeof data.model !== 'string' || data.model.length > 200 || (data.provider !== 'chatgpt' && !data.model.trim())
           || typeof data.key !== 'string' || data.key.length > 10000 || /[\r\n]/.test(data.key)
           || !Array.isArray(data.messages) || !data.messages.length || data.messages.length > 100000
           || data.messages.some(m => !m || !['system','user','assistant'].includes(m.role) || typeof m.content !== 'string')
           || typeof data.stream !== 'boolean' || !Number.isInteger(data.timeout) || data.timeout < 5 || data.timeout > 600) {
           jsonError(400, '请求配置无效，请检查模型、消息格式和超时设置。'); return;
+        }
+        if (data.provider === 'chatgpt') {
+          timer = setTimeout(() => { timedOut = true; controller.abort(); }, data.timeout * 1000);
+          let content = '';
+          const event = value => res.write(`data: ${JSON.stringify(value)}\n\n`);
+          try {
+            await codexReply(data, { signal: controller.signal, onDelta: delta => {
+              if (controller.signal.aborted) return;
+              if (data.stream) {
+                if (!res.headersSent) res.writeHead(200, { 'Content-Type': 'text/event-stream', 'X-Accel-Buffering': 'no' });
+                event({ choices: [{ delta: { content: delta } }] });
+              } else content += delta;
+            } });
+            controller.signal.throwIfAborted();
+            if (data.stream) {
+              if (!res.headersSent) throw new Error('empty');
+              event({ choices: [{ delta: {}, finish_reason: 'stop' }] });
+              res.end('data: [DONE]\n\n');
+            } else res.writeHead(200, { 'Content-Type': 'application/json' }).end(JSON.stringify({ choices: [{ message: { content }, finish_reason: 'stop' }] }));
+          } catch {
+            if (!res.destroyed) {
+              if (res.headersSent) event({ error: { code: timedOut ? 'timeout' : 'subscription' } });
+              else jsonError(timedOut ? 504 : 502, timedOut ? 'ChatGPT 请求超时，请增加超时后手动重试。' : 'ChatGPT 订阅请求失败。请运行 npm run login:chatgpt 登录，检查模型权限、网络及订阅额度后重试；不会自动转用 API Key。');
+              if (!res.writableEnded) res.end();
+            }
+          }
+          return;
         }
         let url;
         try { url = endpoint(data.base); } catch { jsonError(400, 'Base URL 格式无效，请使用完整 HTTP(S) 地址，且不要附带密钥或查询参数。'); return; }

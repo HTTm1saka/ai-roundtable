@@ -11,7 +11,7 @@ export function endpoint(base) {
   return u.href;
 }
 export function profile(name = '新 AI', role = '请认真分析话题，回应其他参与者，并给出简洁、有依据的观点。') {
-  return { id: uid(), name, role, base: 'https://api.openai.com/v1', model: '', remember: false, key: '', stream: true };
+  return { id: uid(), name, role, provider: 'api', base: 'https://api.openai.com/v1', model: '', remember: false, key: '', stream: true };
 }
 export function session(profiles = []) {
   return { id: uid(), title: '新的讨论', topic: '', createdAt: now(), updatedAt: now(),
@@ -69,7 +69,7 @@ export function context(s, ai) {
     { role: 'user', content: `现在轮到「${ai.name}」发言，请结合上述讨论回应。` }], truncated };
 }
 export function cleanProfile(p, forExport = false) {
-  return { ...p, key: !forExport && p.remember ? (p.key || '') : '', remember: forExport ? false : !!p.remember };
+  return { ...p, key: p.provider !== 'chatgpt' && !forExport && p.remember ? (p.key || '') : '', remember: p.provider === 'chatgpt' || forExport ? false : !!p.remember };
 }
 export function snapshot(state, forExport = false) {
   return { version: 1, activeId: state.activeId,
@@ -91,6 +91,7 @@ const plain = x => !!x && typeof x === 'object' && !Array.isArray(x);
 const str = (x, n = 2000000) => typeof x === 'string' && x.length <= n;
 function validProfile(p) {
   return plain(p) && str(p.id, 100) && str(p.name, 100) && p.name.trim() && str(p.role, 50000)
+    && [undefined, 'api', 'chatgpt'].includes(p.provider)
     && str(p.base, 2000) && str(p.model, 200) && typeof p.stream === 'boolean' && typeof p.remember === 'boolean'
     && str(p.key, 10000);
 }

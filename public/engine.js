@@ -11,6 +11,7 @@ export class Engine {
     if (!s.topic.trim()) throw new Error('请先输入并发送讨论话题。');
     if (!s.participants.length) throw new Error('请至少添加一位 AI。');
     for (const p of s.participants) {
+      if (p.provider === 'chatgpt') continue;
       endpoint(p.base);
       if (!p.model.trim()) throw new Error(`请为「${p.name}」填写模型名称。`);
     }
