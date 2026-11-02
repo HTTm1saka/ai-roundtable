@@ -1,4 +1,4 @@
-import { uid, now, profile, session, endpoint, snapshot, recover, validateBackup, importBackup, reconcile } from './core.js';
+import { uid, now, profile, session, endpoint, snapshot, recover, validateBackup, importBackup, reconcile, reasoningLevels, validReasoningEffort } from './core.js';
 import { openDB, readDB, writeDB } from './storage.js';
 import { Engine } from './engine.js';
 import { chatRequest } from './client.js';
@@ -69,6 +69,7 @@ function renderParticipants(s) {
     top.append(el('span','participant-number',String(i+1).padStart(2,'0')));
     const info = el('div','participant-info'); info.append(el('strong','',p.name),el('small','',p.provider === 'chatgpt' ? `ChatGPT 订阅 · ${p.model || '默认模型'}` : p.model || '尚未配置模型'));
     top.append(info); card.append(top);
+    if (p.reasoningEffort && p.reasoningEffort !== 'default') info.append(el('small', '', `思考：${reasoningLevels[p.reasoningEffort]}`));
     const tools = el('div','participant-tools');
     const actions = [ ['↑', '上移', async () => move(s,i,-1), i === 0], ['↓','下移',async () => move(s,i,1), i === s.participants.length-1],
       ['编辑','编辑 '+p.name,() => openAI(p),false], ['移除','移除 '+p.name,async () => {
@@ -182,12 +183,18 @@ function openAI(p = null) {
   const value = p || profile(); const form = $('ai-form'); form.reset();
   for (const key of ['name','role','base','key','model']) form.elements[key].value = value[key];
   form.elements.remember.value = value.remember ? 'yes' : 'no'; form.elements.stream.checked = value.stream;
-  form.elements.provider.value = value.provider || 'api'; updateProvider();
+  form.elements.provider.value = value.provider || 'api';
+  updateProvider(value.reasoningEffort || 'default');
   form.elements.key.type = 'password'; $('toggle-key').textContent = '显示'; $('test-result').textContent = '';
   $('ai-dialog-title').textContent = p ? '编辑 AI' : '添加 AI'; $('ai-dialog').showModal();
 }
-function updateProvider() {
+function updateProvider(selected) {
   const f = $('ai-form').elements, subscription = f.provider.value === 'chatgpt';
+  const effort = typeof selected === 'string' ? selected : f.reasoningEffort.value;
+  f.reasoningEffort.replaceChildren(...Object.entries(reasoningLevels).filter(([value]) => validReasoningEffort(value, f.provider.value)).map(([value, label]) => {
+    const option = el('option', '', label); option.value = value; return option;
+  }));
+  f.reasoningEffort.value = validReasoningEffort(effort, f.provider.value) ? effort : 'default';
   $('api-settings').hidden = subscription;
   $('subscription-settings').hidden = !subscription;
   $('subscription-model-note').hidden = !subscription;
@@ -200,7 +207,7 @@ function updateProvider() {
 function formProfile() {
   const f = $('ai-form').elements;
   const p = { id: editing.id || uid(), name: f.name.value.trim(), role: f.role.value.trim(), base: f.base.value.trim(),
-    provider: f.provider.value, key: f.key.value.trim(), model: f.model.value.trim(), remember: f.remember.value === 'yes', stream: f.stream.checked };
+    provider: f.provider.value, reasoningEffort: f.reasoningEffort.value, key: f.key.value.trim(), model: f.model.value.trim(), remember: f.remember.value === 'yes', stream: f.stream.checked };
   if (p.provider === 'chatgpt') { p.key = ''; p.remember = false; }
   else endpoint(p.base);
   if (!p.name || (p.provider !== 'chatgpt' && !p.model)) throw new Error('请填写 AI 名称和模型名称。');

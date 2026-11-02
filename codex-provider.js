@@ -40,6 +40,7 @@ export async function subscriptionReply(data, { signal, onDelta, status = subscr
   } });
   const thread = codex.startThread({
     ...(data.model.trim() ? { model: data.model.trim() } : {}),
+    ...(data.reasoningEffort && data.reasoningEffort !== 'default' ? { modelReasoningEffort: data.reasoningEffort } : {}),
     workingDirectory: workspace, skipGitRepoCheck: true, sandboxMode: 'read-only',
     approvalPolicy: 'never', webSearchMode: 'disabled', networkAccessEnabled: false
   });

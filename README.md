@@ -66,9 +66,15 @@ npm run logout:chatgpt
 
 不会自动猜测 `/v1`：填写 `https://host/v1` 时请求 `https://host/v1/chat/completions`；填写 `https://host/custom/api` 时请求 `https://host/custom/api/chat/completions`。也接受完整 `…/chat/completions`，尾部斜线会去除，不会重复拼接。URL 不允许包含用户名、密码、查询参数或片段。Key 单独以 `Authorization: Bearer …` 传递。
 
-接口依据 [OpenAI Chat Completions 文档](https://developers.openai.com/api/reference/resources/chat)。请求仅发送 `model`、`messages`、`stream` 三个基础参数，消息角色限定为 `system`、`user`、`assistant`。服务商必须提供这一兼容协议；原生 Anthropic Messages、Gemini 原生接口或仅支持 Responses 的模型需要另配兼容网关，不能直接填它们的原生地址。
+接口依据 [OpenAI Chat Completions 文档](https://developers.openai.com/api/reference/resources/chat)。请求发送 `model`、`messages`、`stream`，显式选择思考程度时另外发送 `reasoning_effort`，消息角色限定为 `system`、`user`、`assistant`。服务商必须提供这一兼容协议；原生 Anthropic Messages、Gemini 原生接口或仅支持 Responses 的模型需要另配兼容网关，不能直接填它们的原生地址。
 
 “测试连接”会发起真实请求并检验文本响应，可能产生少量费用。测试不写入聊天，也不计入轮数。不预设会过时的付费模型 ID，请从服务商控制台选择。API Key 不是 ChatGPT 网页登录凭证。
+
+## 思考程度
+
+每位参与者的“编辑”窗口提供“思考程度”选择，API 和 ChatGPT 订阅均可独立设置。共用档位包括跟随模型（默认）、极低、低、中、高、超高和最高；API 还可选择关闭思考，订阅还可选择极致。参与者卡片显示非默认档位。设置随会话与备份保存，旧配置沿用模型默认值。
+
+“跟随模型”不发送额外推理参数；API 显式选择通过 reasoning_effort 发送，订阅通过 Codex SDK 的 modelReasoningEffort 传入。实际可用档位取决于模型和服务商，选择不支持的档位可能被拒绝或忽略。不兼容时改回“跟随模型”后手动重试，应用不会自动重复请求。更高程度通常耗时更久、消耗更多额度。讨论期间先暂停并等待当前回复结束，再编辑参与者；之后的请求使用新设置。切换接入方式时，不兼容的档位恢复为默认。
 
 ## 使用流程与讨论语义
 

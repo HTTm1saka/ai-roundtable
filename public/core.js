@@ -1,5 +1,14 @@
 export const uid = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
+export const reasoningLevels = {
+  default: '跟随模型（默认）', none: '关闭思考（none）', minimal: '极低（minimal）',
+  low: '低（low）', medium: '中（medium）', high: '高（high）',
+  xhigh: '超高（xhigh）', max: '最高（max）', ultra: '极致（ultra）'
+};
+export function validReasoningEffort(value, provider = 'api') {
+  return value === undefined || (typeof value === 'string' && Object.hasOwn(reasoningLevels, value)
+    && !(provider === 'chatgpt' && value === 'none') && !(provider !== 'chatgpt' && value === 'ultra'));
+}
 export function endpoint(base) {
   let u;
   try { u = new URL(base.trim()); } catch { throw new Error('Base URL 必须是完整的 http:// 或 https:// 地址。'); }
@@ -11,7 +20,7 @@ export function endpoint(base) {
   return u.href;
 }
 export function profile(name = '新 AI', role = '请认真分析话题，回应其他参与者，并给出简洁、有依据的观点。') {
-  return { id: uid(), name, role, provider: 'api', base: 'https://api.openai.com/v1', model: '', remember: false, key: '', stream: true };
+  return { id: uid(), name, role, provider: 'api', base: 'https://api.openai.com/v1', model: '', reasoningEffort: 'default', remember: false, key: '', stream: true };
 }
 export function session(profiles = []) {
   return { id: uid(), title: '新的讨论', topic: '', createdAt: now(), updatedAt: now(),
@@ -92,6 +101,7 @@ const str = (x, n = 2000000) => typeof x === 'string' && x.length <= n;
 function validProfile(p) {
   return plain(p) && str(p.id, 100) && str(p.name, 100) && p.name.trim() && str(p.role, 50000)
     && [undefined, 'api', 'chatgpt'].includes(p.provider)
+    && validReasoningEffort(p.reasoningEffort, p.provider)
     && str(p.base, 2000) && str(p.model, 200) && typeof p.stream === 'boolean' && typeof p.remember === 'boolean'
     && str(p.key, 10000);
 }

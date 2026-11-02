@@ -24,6 +24,16 @@ test('真实 HTTP 代理：鉴权、路径、JSON/SSE、取消、安全错误与
   const send=(data=body,headers={})=>fetch(url,{method:'POST',headers:{'Content-Type':'application/json','X-Roundtable':'1',...headers},body:JSON.stringify(data)});
   let r=await send();assert.equal(r.status,200);assert.equal((await r.json()).choices[0].message.content,'非流式中文');
   assert.equal(captured[0].url,'/v1/chat/completions');assert.equal(captured[0].auth,'Bearer SECRET-TEMP');assert.equal(captured[0].data.messages[0].content,'话题中文');
+  assert.ok(!Object.hasOwn(captured[0].data,'reasoning_effort'));
+  for (const effort of ['default','none','minimal','low','medium','high','xhigh','max']) {
+    r=await send({...body,reasoningEffort:effort});assert.equal(r.status,200);await r.arrayBuffer();
+    assert.equal(captured.at(-1).data.reasoning_effort,effort==='default'?undefined:effort);
+  }
+  const beforeInvalid=captured.length;
+  for (const effort of ['ultra','invalid',null,['high'],42]) {
+    r=await send({...body,reasoningEffort:effort});assert.equal(r.status,400);
+  }
+  assert.equal(captured.length,beforeInvalid);
   r=await send({...body,stream:true});assert.match(await r.text(),/\[DONE\]/);
   r=await send({...body,model:'bad'});const error=await r.text();assert.equal(r.status,401);assert.ok(!error.includes('SECRET'));assert.match(error,/认证/);
   r=await send(body,{Origin:'https://evil.example'});assert.equal(r.status,403);

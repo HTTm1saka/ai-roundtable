@@ -1,7 +1,7 @@
 import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { endpoint } from './public/core.js';
+import { endpoint, validReasoningEffort } from './public/core.js';
 import { subscriptionReply, subscriptionStatus } from './codex-provider.js';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
@@ -11,7 +11,7 @@ export function errorText(status) {
   if (status === 401 || status === 403) return '认证或权限失败，请检查 API Key、账户权限与额度。';
   if (status === 404) return '模型或接口路径不存在，请检查模型名称和 Base URL。';
   if (status === 429) return '服务商限流或额度不足，请稍后手动重试。';
-  if (status === 400 || status === 422) return '接口参数不兼容，请检查模型是否支持 Chat Completions、system 消息及流式输出；可关闭流式后手动重试。';
+  if (status === 400 || status === 422) return '接口参数不兼容，请检查模型是否支持 Chat Completions、system 消息、流式输出及所选思考程度；可将思考程度改为“跟随模型”或关闭流式后手动重试。';
   return `上游服务请求失败（HTTP ${status}），请检查服务商状态。`;
 }
 export function createServer({ codexReply = subscriptionReply, codexStatus = subscriptionStatus } = {}) {
@@ -49,6 +49,7 @@ export function createServer({ codexReply = subscriptionReply, codexStatus = sub
         let data;
         try { data = JSON.parse(Buffer.concat(chunks).toString('utf8')); } catch { jsonError(400, '请求 JSON 无效。'); return; }
         if (!data || ![undefined, 'api', 'chatgpt'].includes(data.provider)
+          || !validReasoningEffort(data.reasoningEffort, data.provider)
           || typeof data.base !== 'string' || typeof data.model !== 'string' || data.model.length > 200 || (data.provider !== 'chatgpt' && !data.model.trim())
           || typeof data.key !== 'string' || data.key.length > 10000 || /[\r\n]/.test(data.key)
           || !Array.isArray(data.messages) || !data.messages.length || data.messages.length > 100000
@@ -77,7 +78,7 @@ export function createServer({ codexReply = subscriptionReply, codexStatus = sub
           } catch {
             if (!res.destroyed) {
               if (res.headersSent) event({ error: { code: timedOut ? 'timeout' : 'subscription' } });
-              else jsonError(timedOut ? 504 : 502, timedOut ? 'ChatGPT 请求超时，请增加超时后手动重试。' : 'ChatGPT 订阅请求失败。请运行 npm run login:chatgpt 登录，检查模型权限、网络及订阅额度后重试；不会自动转用 API Key。');
+              else jsonError(timedOut ? 504 : 502, timedOut ? 'ChatGPT 请求超时，请增加超时后手动重试。' : 'ChatGPT 订阅请求失败。请运行 npm run login:chatgpt 登录，检查模型权限、思考程度、网络及订阅额度后重试；不会自动转用 API Key。');
               if (!res.writableEnded) res.end();
             }
           }
@@ -89,7 +90,8 @@ export function createServer({ codexReply = subscriptionReply, codexStatus = sub
         const headers = { 'Content-Type': 'application/json', 'Accept': 'application/json, text/event-stream' };
         if (data.key) headers.Authorization = `Bearer ${data.key}`;
         const upstream = await fetch(url, { method: 'POST', headers,
-          body: JSON.stringify({ model: data.model, messages: data.messages, stream: data.stream }),
+          body: JSON.stringify({ model: data.model, messages: data.messages, stream: data.stream,
+            ...(data.reasoningEffort && data.reasoningEffort !== 'default' ? { reasoning_effort: data.reasoningEffort } : {}) }),
           signal: controller.signal, redirect: 'error' });
         if (!upstream.ok) { await upstream.body?.cancel(); jsonError(upstream.status, errorText(upstream.status)); return; }
         const type = upstream.headers.get('content-type') || '';
