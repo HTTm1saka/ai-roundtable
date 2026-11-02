@@ -2,40 +2,107 @@
 
 原生 HTML、CSS、JavaScript 前端 + Node.js 本地代理。支持 OpenAI 兼容 API，以及通过官方 Codex SDK 使用 ChatGPT 订阅额度。没有模拟回复、应用账户或外部数据库。所有 Markdown 依赖从本地加载，页面不依赖 CDN。
 
-设计依据提供的 DESIGN.md：奶油底色 `#faf9f5`、珊瑚主按钮 `#cc785c`、深色代码块 `#181715`，衬线标题、细分隔线、低阴影及响应式布局。附带 README 的内容仅作为设计出处说明，不替代用户的功能要求。未分发商业字体；使用系统衬线与中文字体回退。
+## 功能
 
-## 快速启动
+- 邀请多位 AI，用独立角色围绕同一话题轮流讨论；你可以随时加入。
+- 支持 OpenAI 兼容 API、Ollama 等本地服务，以及 ChatGPT 订阅的 Codex 额度。
+- 每位 AI 独立设置模型、思考程度与流式输出；讨论可暂停、继续、重试和追加轮数。
+- 会话保存在自己的浏览器，支持 JSON 备份和文本导出。
 
-需要 Node.js **22 或更新版本**，推荐当前 LTS；浏览器使用新版 Edge、Chrome 或 Firefox。
+## 下载与启动
 
-在 PowerShell 中：
+这是一个供每个人在自己电脑运行的项目。每位使用者配置自己的 API Key 或登录自己的 ChatGPT 账号，聊天记录和凭证不会通过 GitHub 分享。
 
-```powershell
-cd H:\codex\ai-roundtable
-npm ci --omit=dev
+### 1. 准备环境
+
+安装 [Node.js](https://nodejs.org/) **22 或更新版本**（包含 npm），安装后重新打开终端。浏览器使用新版 Edge、Chrome 或 Firefox。
+
+### 2. 下载项目
+
+打开 [GitHub 仓库](https://github.com/HTTm1saka/ai-roundtable)，点击 **Code → Download ZIP**，把 ZIP 完整解压到自己的文件夹。不要在压缩包内部启动。无需安装 Git。
+
+也可以用 Git 下载：
+
+```sh
+git clone https://github.com/HTTm1saka/ai-roundtable.git
+cd ai-roundtable
+```
+
+### 3. 启动
+
+**Windows：** 双击解压目录里的 **start.cmd**。如果提示找不到 Node.js，安装 Node.js 后重新打开文件夹或终端再试。这个入口不运行 PowerShell 脚本，无需调整执行策略。
+
+**macOS / Linux：** 在解压目录打开终端，执行：
+
+```sh
+sh start.sh
+```
+
+**所有平台也可以使用：** 在项目目录运行：
+
+```sh
+node scripts/launch.js start
+```
+
+启动器会检查 Node.js、运行依赖和当前系统的 Codex 二进制文件；首次运行、依赖缺失或版本变化时自动安装。首次安装需要网络，等待终端显示启动成功后，用浏览器打开 **http://127.0.0.1:3210**。保持终端运行；停止服务按 **Ctrl+C**。每次使用都从同一入口启动。
+
+熟悉 npm 的使用者也可手动安装启动：
+
+```sh
+npm ci --omit=dev --include=optional
 npm start
 ```
 
-然后打开 **http://127.0.0.1:3210**。不要双击 index.html 或以 `file://` 打开。停止服务按 Ctrl+C。Windows 也可双击 `start.cmd`，首次运行自动安装运行依赖。
+Windows PowerShell 若拦截 npm.ps1，使用 npm.cmd 替代 npm，例如 `npm.cmd start`；或直接用 start.cmd。无需以管理员身份启动本项目。
 
-目录移动或解压后，将命令中的路径换成实际路径。首次安装需要网络；依赖安装完成后可离线打开界面，调用远程 AI 仍需要网络，调用本机模型不需要公网。
+### 4. 配置并开始讨论
 
-端口被占用时：
+1. 在页面右侧“参与 AI”中点击“编辑”，选择接入方式。
+2. API 模式填写自己的 Base URL、Key 和模型 ID；订阅模式按下文完成 ChatGPT 登录。
+3. 选择思考程度，点击“测试连接”验收后保存。测试会使用实际额度。
+4. 输入话题，设置计划轮数，点击“开始讨论”。
+
+不要双击 index.html 或以 file:// 打开页面。界面本身可在安装依赖后离线加载，调用远程 AI 仍需要网络。
+
+### 端口与数据位置
+
+端口被占用时，在项目目录选择另一个端口：
+
+Windows PowerShell：
 
 ```powershell
 $env:PORT = "3212"
-npm start
+node scripts/launch.js start
 ```
 
-服务仅绑定 `127.0.0.1`，适合个人本机使用。手机尺寸布局已适配；默认不对局域网开放服务，因此手机不能直接访问电脑上的此端口。
+macOS / Linux：
 
-**请始终使用相同的浏览器资料、地址和端口。** `localhost` 与 `127.0.0.1`、3210 与 3212 分别拥有独立的网站存储；更换地址不会删除原记录，但原记录不会出现在新地址中。页面通过 Web Locks 限制同一浏览器来源只允许一个可写标签页，避免标签页之间覆盖数据。
+```sh
+PORT=3212 sh start.sh
+```
+
+然后打开 http://127.0.0.1:3212。服务只绑定本机 127.0.0.1，每位使用者各自运行；手机或其他电脑不能通过这个地址访问你的实例。
+
+**请始终使用相同的浏览器资料、地址和端口。** localhost 与 127.0.0.1、3210 与 3212 分别拥有独立的网站存储；换地址不会删除原记录，但原记录不会出现在新地址中。页面限制同一浏览器来源只允许一个可写标签页，避免数据相互覆盖。
+
+## 更新与分享
+
+- 分享给别人：发送本仓库链接，让对方按上面的步骤下载、安装 Node.js 并启动。每个人使用自己的模型账号与额度。
+- Git 下载的使用者：先停止服务，在项目目录执行 `git pull --ff-only`，再运行启动器；它会检查并补齐更新后的依赖。
+- ZIP 下载的使用者：先从页面导出 JSON 备份，再把新版解压到新目录并启动；同一浏览器与同一地址通常能继续读取原记录，也可以导入备份。
+- 分享项目文件时使用 GitHub 的 ZIP 或 Git 源码。浏览器资料、包含私人对话的备份及用户目录下的 .ai-roundtable/ 不属于项目分发内容。
 
 ## API 配置示例
 
 ### 使用 ChatGPT 订阅额度
 
-安装依赖后，在项目目录执行：
+Windows 可直接双击项目中的 **login-chatgpt.cmd**，按提示登录。所有平台也可以在项目目录运行（首次使用会自动检查并安装依赖）：
+
+```sh
+node scripts/launch.js login
+```
+
+已经安装依赖时，也可以执行：
 
 ```powershell
 npm run login:chatgpt
@@ -149,10 +216,13 @@ tests/proxy.test.js       HTTP 代理与响应解析测试
 tests/fixture-server.js   仅测试使用的可控上游
 tests/e2e/room.spec.js     真实浏览器端到端测试
 start.cmd                 Windows 启动器
+start.sh                  macOS / Linux 启动入口
+login-chatgpt.cmd          Windows ChatGPT 登录入口
+scripts/launch.js         通用环境检查、依赖安装和启动器
 package-lock.json         固定依赖版本
 ```
 
-## 复现验证
+## 开发与验证
 
 ```powershell
 npm ci

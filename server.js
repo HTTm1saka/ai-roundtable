@@ -130,7 +130,10 @@ export function createServer({ codexReply = subscriptionReply, codexStatus = sub
 }
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
   const port = Number(process.env.PORT || 3210);
+  if (!Number.isInteger(port) || port < 0 || port > 65535) {
+    console.error('启动失败：PORT 必须是 0–65535 之间的整数。'); process.exit(1);
+  }
   const server = createServer();
   server.on('error', () => { console.error('启动失败：端口可能已被占用，请设置 PORT 后重试。'); process.exitCode = 1; });
-  server.listen(port, '127.0.0.1', () => console.log(`圆桌已启动：http://127.0.0.1:${port}（Ctrl+C 退出）`));
+  server.listen(port, '127.0.0.1', () => console.log(`圆桌已启动：http://127.0.0.1:${server.address().port}（Ctrl+C 退出）`));
 }

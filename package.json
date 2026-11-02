@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "start": "node server.js",
-    "test": "node --test tests/core.test.js tests/proxy.test.js tests/codex.test.js",
+    "test": "node --test tests/core.test.js tests/proxy.test.js tests/codex.test.js tests/launcher.test.js",
     "test:e2e": "playwright test",
     "login:chatgpt": "node scripts/chatgpt-login.js",
     "logout:chatgpt": "node scripts/chatgpt-login.js --logout"

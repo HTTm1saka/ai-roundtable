@@ -132,6 +132,7 @@ function renderMessages(s) {
   }
   if (!s.messages.length && !area.firstChild) {
     const welcome = el('div','welcome'); welcome.append(el('div','welcome-mark','✳'),el('h2','', '让不同的观点，\n坐在同一张桌上。'),el('p','', '邀请不同的 AI，以各自的角色展开讨论。\n你既是发起者，也是随时可以加入的参与者。'));
+    welcome.append(el('p', '', '第一次使用：先点参与 AI 的“编辑”，配置自己的 API 或 ChatGPT 订阅，再开始讨论。'));
     const suggestions = el('div','suggestions');
     for (const text of ['一个人如何借助 AI 开始自己的小事业？','未来十年，什么能力最值得培养？','让支持者与质疑者讨论我的新想法']) {
       const b = el('button','',text); b.append(el('span','','↗')); b.onclick = () => { $('message-input').value = text; $('message-input').focus(); }; suggestions.append(b);
